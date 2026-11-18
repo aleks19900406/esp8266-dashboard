@@ -24,6 +24,21 @@
 <button onclick="send('TOGGLE')">Preklopi</button>
 <p id="status">povezovanje...</p>
 
+<h2>Statistika</h2>
+<p id="cards">čakam na podatke...</p>
+<pre id="analysis" style="display:inline-block;text-align:left;font-size:16px"></pre>
+<p id="trend"></p>
+<div style="max-width:900px;margin:auto">
+  <h3>Zadnjih 24 ur (urna povprečja)</h3><canvas id="c24"></canvas>
+  <h3>Zadnjih 7 dni (urna povprečja)</h3><canvas id="c7"></canvas>
+  <h3>Zadnjih 14 dni (urna povprečja)</h3><canvas id="c14"></canvas>
+</div>
+<h3>Po dnevih (14 dni)</h3>
+<table>
+  <thead><tr><th>Dan</th><th>Min</th><th>Max</th><th>Povpr.</th><th>Ur &gt;25&deg;C</th><th>Ur &lt;18&deg;C</th><th>20-23&deg;C</th></tr></thead>
+  <tbody id="days"></tbody>
+</table>
+
 <h2>Zgodovina (vsako minuto)</h2>
 <button class="dl" onclick="downloadCsv()">Prenesi CSV</button>
 <table>
@@ -32,13 +47,14 @@
 </table>
 
 <script src="https://unpkg.com/mqtt@5/dist/mqtt.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 <script>
   const ID = "esp-e3a9f4685a";
   let csv = "";
   const c = mqtt.connect("wss://broker.hivemq.com:8884/mqtt");
   c.on("connect", () => {
     document.getElementById("status").textContent = "povezano";
-    c.subscribe([ID + "/temperature", ID + "/distance", ID + "/led/state", ID + "/history"]);
+    c.subscribe([ID + "/temperature", ID + "/distance", ID + "/led/state", ID + "/history", ID + "/stats"]);
   });
   c.on("close", () => document.getElementById("status").textContent = "ni povezave");
   c.on("message", (t, m) => {
@@ -47,12 +63,54 @@
     if (t.endsWith("/distance")) document.getElementById("dist").textContent = s;
     if (t.endsWith("/led/state")) document.getElementById("led").textContent = s;
     if (t.endsWith("/history")) showHistory(s);
+    if (t.endsWith("/stats")) showStats(JSON.parse(s));
   });
   function send(cmd) { c.publish(ID + "/led/set", cmd); }
+
+  const charts = {};
+  function draw(id, labels, data, color) {
+    if (charts[id]) { charts[id].data.labels = labels; charts[id].data.datasets[0].data = data; charts[id].update(); return; }
+    charts[id] = new Chart(document.getElementById(id), {
+      type: "line",
+      data: { labels, datasets: [{ data, borderColor: color, pointRadius: 0, borderWidth: 2, tension: 0.2, spanGaps: true }] },
+      options: { plugins: { legend: { display: false } }, scales: { x: { ticks: { maxTicksLimit: 8 } } } }
+    });
+  }
+  function showStats(s) {
+    const now = new Date(s.t.replace(" ", "T"));
+    const H = s.h.length;
+    const labels = s.h.map((_, i) => {
+      const d = new Date(now.getTime() - (H - 1 - i) * 3600000);
+      return d.getDate() + "." + (d.getMonth() + 1) + ". " + String(d.getHours()).padStart(2, "0") + ":00";
+    });
+    draw("c24", labels.slice(-24), s.h.slice(-24), "#d33");
+    draw("c7", labels.slice(-168), s.h.slice(-168), "#27c");
+    draw("c14", labels, s.h, "#2a2");
+    const days = s.d.filter(x => x);
+    document.getElementById("days").innerHTML = days.slice().reverse().map(d =>
+      "<tr><td>" + d[0] + "</td><td>" + d[1] + "</td><td>" + d[2] + "</td><td>" + d[3] + "</td><td>" +
+      (d[4] / 60).toFixed(1) + " h</td><td>" + (d[5] / 60).toFixed(1) + " h</td><td>" + Math.round(100 * d[6] / d[7]) + "%</td></tr>").join("");
+    const t = days[days.length - 1];
+    if (t) {
+      const cur = document.getElementById("temp").textContent;
+      document.getElementById("cards").innerHTML = "Trenutno: <b>" + cur + " &deg;C</b> | Min danes: <b>" + t[1] +
+        " &deg;C</b> | Max danes: <b>" + t[2] + " &deg;C</b> | Povprečje danes: <b>" + t[3] + " &deg;C</b>";
+      document.getElementById("analysis").textContent =
+        "Danes:\nMin: " + t[1] + "°C\nMax: " + t[2] + "°C\nAvg: " + t[3] + "°C\n\nNad 25°C: " + (t[4] / 60).toFixed(1) +
+        "h\n20-23°C: " + Math.round(100 * t[6] / t[7]) + "% časa\nPod 18°C: " + (t[5] / 60).toFixed(1) + "h";
+    }
+  }
 
   function showHistory(s) {
     const lines = s.split("\n").filter(l => l && !l.startsWith("time,"));
     csv = "time,temperature_c,distance_cm\n" + lines.join("\n") + "\n";
+    if (lines.length > 1) {
+      const a = parseFloat(lines[0].split(",")[1]), b = parseFloat(lines[lines.length - 1].split(",")[1]);
+      const d = b - a;
+      const mins = lines.length - 1;
+      document.getElementById("trend").innerHTML = "Trend: <b>" + (Math.abs(d) < 0.3 ? "Stable →" : d > 0 ? "Rising ↑" : "Falling ↓") +
+        "</b> " + (d >= 0 ? "+" : "") + d.toFixed(1) + "°C zadnjih " + mins + " min";
+    }
     document.getElementById("hist").innerHTML = lines.reverse().map(l => {
       const p = l.split(",");
       return "<tr><td>" + p[0] + "</td><td>" + (p[1] || "") + "</td><td>" + (p[2] || "") + "</td></tr>";
