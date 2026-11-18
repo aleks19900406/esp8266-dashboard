@@ -17,7 +17,6 @@
 <body>
 <h1>ESP8266</h1>
 <div class="temp"><span id="temp">--</span> &deg;C</div>
-<div class="temp"><span id="dist">--</span> cm</div>
 <p>LED: <b id="led">?</b></p>
 <button onclick="send('ON')">Vklopi</button>
 <button onclick="send('OFF')">Izklopi</button>
@@ -39,12 +38,8 @@
   <tbody id="days"></tbody>
 </table>
 
-<h2>Zgodovina (vsako minuto)</h2>
+<h2>CSV</h2>
 <button class="dl" onclick="downloadCsv()">Prenesi CSV</button>
-<table>
-  <thead><tr><th>Čas</th><th>Temperatura (&deg;C)</th><th>Razdalja (cm)</th></tr></thead>
-  <tbody id="hist"><tr><td colspan="3">čakam na podatke...</td></tr></tbody>
-</table>
 
 <script src="https://unpkg.com/mqtt@5/dist/mqtt.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
@@ -60,7 +55,6 @@
   c.on("message", (t, m) => {
     const s = m.toString();
     if (t.endsWith("/temperature")) document.getElementById("temp").textContent = s;
-    if (t.endsWith("/distance")) document.getElementById("dist").textContent = s;
     if (t.endsWith("/led/state")) document.getElementById("led").textContent = s;
     if (t.endsWith("/history")) showHistory(s);
     if (t.endsWith("/stats")) showStats(JSON.parse(s));
@@ -111,10 +105,6 @@
       document.getElementById("trend").innerHTML = "Trend: <b>" + (Math.abs(d) < 0.3 ? "Stable →" : d > 0 ? "Rising ↑" : "Falling ↓") +
         "</b> " + (d >= 0 ? "+" : "") + d.toFixed(1) + "°C zadnjih " + mins + " min";
     }
-    document.getElementById("hist").innerHTML = lines.reverse().map(l => {
-      const p = l.split(",");
-      return "<tr><td>" + p[0] + "</td><td>" + (p[1] || "") + "</td><td>" + (p[2] || "") + "</td></tr>";
-    }).join("");
   }
   function downloadCsv() {
     const a = document.createElement("a");
