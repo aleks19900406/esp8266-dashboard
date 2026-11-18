@@ -47,6 +47,8 @@
   .switch::after { content:""; position:absolute; top:4px; left:4px; width:26px; height:26px; border-radius:50%; background:#fff; transition:.25s; }
   .switch.on { background:#3ddc84; } .switch.on::after { left:34px; }
   .btn { background:var(--accent); color:#04202b; border:0; padding:12px 22px; border-radius:12px; font-size:15px; font-weight:600; cursor:pointer; }
+  .fld { display:block; color:var(--mute); font-size:12px; text-transform:uppercase; letter-spacing:1px; }
+  .fld input { display:block; width:100%; margin-top:6px; padding:10px 12px; font-size:18px; background:var(--card2); border:1px solid var(--line); border-radius:10px; color:var(--text); }
   footer { text-align:center; color:var(--mute); font-size:12px; padding:24px 0 8px; }
 </style>
 </head>
@@ -97,6 +99,17 @@
     <tbody id="days"><tr><td colspan="7">čakam na podatke...</td></tr></tbody>
   </table>
 
+  <h2>Alarmi</h2>
+  <div class="card">
+    <div class="row" style="margin-bottom:14px"><b>Obvestila na telefon (ntfy)</b><div class="switch" id="aen" onclick="this.classList.toggle('on')"></div></div>
+    <div class="grid" style="margin:0">
+      <label class="fld">Opozori nad (&deg;C)<input type="number" step="0.5" id="ahiIn" value="30"></label>
+      <label class="fld">Opozori pod (&deg;C)<input type="number" step="0.5" id="aloIn" value="5"></label>
+      <label class="fld">Hitra sprememba v 10 min (&deg;C)<input type="number" step="0.5" min="0.5" id="arIn" value="3"></label>
+    </div>
+    <div class="row" style="margin-top:14px"><button class="btn" onclick="saveAlarms()">Shrani nastavitve</button><span id="asave" class="pill">čakam na ESP...</span></div>
+  </div>
+
   <h2>Izvoz</h2>
   <button class="btn" onclick="downloadCsv()">&#11015; Prenesi CSV</button>
 
@@ -112,7 +125,7 @@
   const c = mqtt.connect("wss://broker.hivemq.com:8884/mqtt");
   c.on("connect", () => {
     $("status").classList.add("on"); $("stxt").textContent = "povezano";
-    c.subscribe([ID + "/temperature", ID + "/led/state", ID + "/history", ID + "/stats"]);
+    c.subscribe([ID + "/temperature", ID + "/led/state", ID + "/history", ID + "/stats", ID + "/alarm/state"]);
   });
   c.on("close", () => { $("status").classList.remove("on"); $("stxt").textContent = "ni povezave"; });
   c.on("message", (t, m) => {
@@ -121,7 +134,22 @@
     if (t.endsWith("/led/state")) { $("led").textContent = s === "ON" ? "Vklopljena" : "Izklopljena"; $("sw").classList.toggle("on", s === "ON"); }
     if (t.endsWith("/history")) showHistory(s);
     if (t.endsWith("/stats")) { stats = JSON.parse(s); showStats(); }
+    if (t.endsWith("/alarm/state")) showAlarms(s);
   });
+  function showAlarms(s) {
+    const p = s.split(",");
+    if (p.length < 4) return;
+    if (document.activeElement && document.activeElement.tagName === "INPUT") return;
+    $("ahiIn").value = p[0]; $("aloIn").value = p[1]; $("arIn").value = p[2];
+    $("aen").classList.toggle("on", p[3] === "1");
+    $("asave").textContent = "shranjeno na ESP ✓";
+  }
+  function saveAlarms() {
+    const hi = parseFloat($("ahiIn").value), lo = parseFloat($("aloIn").value), r = parseFloat($("arIn").value);
+    if (isNaN(hi) || isNaN(lo) || isNaN(r) || r < 0.1 || lo >= hi) { $("asave").textContent = "neveljavne vrednosti"; return; }
+    c.publish(ID + "/alarm/set", hi + "," + lo + "," + r + "," + ($("aen").classList.contains("on") ? 1 : 0));
+    $("asave").textContent = "pošiljam...";
+  }
   function send(cmd) { c.publish(ID + "/led/set", cmd); }
 
   function colorFor(t) {
