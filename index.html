@@ -5,10 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ESP8266 nadzor</title>
 <style>
-  body { font-family: sans-serif; text-align: center; margin-top: 60px; }
+  body { font-family: sans-serif; text-align: center; margin-top: 40px; }
   .temp { font-size: 64px; margin: 10px; }
   button { font-size: 22px; padding: 14px 28px; margin: 6px; }
   #status { color: #888; }
+  table { margin: 10px auto; border-collapse: collapse; }
+  th, td { border: 1px solid #ccc; padding: 4px 12px; }
+  .dl { font-size: 16px; padding: 8px 16px; }
 </style>
 </head>
 <body>
@@ -20,21 +23,47 @@
 <button onclick="send('OFF')">Izklopi</button>
 <button onclick="send('TOGGLE')">Preklopi</button>
 <p id="status">povezovanje...</p>
+
+<h2>Zgodovina (vsako minuto)</h2>
+<button class="dl" onclick="downloadCsv()">Prenesi CSV</button>
+<table>
+  <thead><tr><th>Čas</th><th>Temperatura (&deg;C)</th><th>Razdalja (cm)</th></tr></thead>
+  <tbody id="hist"><tr><td colspan="3">čakam na podatke...</td></tr></tbody>
+</table>
+
 <script src="https://unpkg.com/mqtt@5/dist/mqtt.min.js"></script>
 <script>
   const ID = "esp-e3a9f4685a";
+  let csv = "";
   const c = mqtt.connect("wss://broker.hivemq.com:8884/mqtt");
   c.on("connect", () => {
     document.getElementById("status").textContent = "povezano";
-    c.subscribe([ID + "/temperature", ID + "/distance", ID + "/led/state"]);
+    c.subscribe([ID + "/temperature", ID + "/distance", ID + "/led/state", ID + "/history"]);
   });
   c.on("close", () => document.getElementById("status").textContent = "ni povezave");
   c.on("message", (t, m) => {
-    if (t.endsWith("/temperature")) document.getElementById("temp").textContent = m.toString();
-    if (t.endsWith("/distance")) document.getElementById("dist").textContent = m.toString();
-    if (t.endsWith("/led/state")) document.getElementById("led").textContent = m.toString();
+    const s = m.toString();
+    if (t.endsWith("/temperature")) document.getElementById("temp").textContent = s;
+    if (t.endsWith("/distance")) document.getElementById("dist").textContent = s;
+    if (t.endsWith("/led/state")) document.getElementById("led").textContent = s;
+    if (t.endsWith("/history")) showHistory(s);
   });
   function send(cmd) { c.publish(ID + "/led/set", cmd); }
+
+  function showHistory(s) {
+    const lines = s.split("\n").filter(l => l && !l.startsWith("time,"));
+    csv = "time,temperature_c,distance_cm\n" + lines.join("\n") + "\n";
+    document.getElementById("hist").innerHTML = lines.reverse().map(l => {
+      const p = l.split(",");
+      return "<tr><td>" + p[0] + "</td><td>" + (p[1] || "") + "</td><td>" + (p[2] || "") + "</td></tr>";
+    }).join("");
+  }
+  function downloadCsv() {
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+    a.download = "log.csv";
+    a.click();
+  }
 </script>
 </body>
 </html>
