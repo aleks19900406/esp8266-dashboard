@@ -3,107 +3,211 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ESP8266 nadzor</title>
+<title>Vremenska postaja</title>
 <style>
-  body { font-family: sans-serif; text-align: center; margin-top: 40px; }
-  .temp { font-size: 64px; margin: 10px; }
-  button { font-size: 22px; padding: 14px 28px; margin: 6px; }
-  #status { color: #888; }
-  table { margin: 10px auto; border-collapse: collapse; }
-  th, td { border: 1px solid #ccc; padding: 4px 12px; }
-  .dl { font-size: 16px; padding: 8px 16px; }
+  :root { --bg:#0b1220; --card:#141c2f; --card2:#1b2540; --text:#e8eefc; --mute:#8a97b5; --line:#26324f; --accent:#4cc9f0; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: "Segoe UI", system-ui, sans-serif; background: var(--bg); color: var(--text); }
+  .wrap { max-width: 1000px; margin: 0 auto; padding: 16px; }
+  header { display:flex; justify-content:space-between; align-items:center; padding: 8px 4px 16px; }
+  header h1 { font-size: 18px; margin:0; font-weight:600; letter-spacing:.5px; }
+  .pill { font-size:12px; padding:4px 10px; border-radius:20px; background:var(--card2); color:var(--mute); }
+  .pill i { display:inline-block; width:8px; height:8px; border-radius:50%; background:#e55; margin-right:6px; }
+  .pill.on i { background:#3ddc84; box-shadow:0 0 8px #3ddc84; }
+  .hero { border-radius: 24px; padding: 28px 20px; text-align:center; transition: background .8s;
+          background: linear-gradient(135deg,#2563eb,#06b6d4); box-shadow: 0 10px 40px rgba(0,0,0,.4); }
+  .hero .label { opacity:.85; font-size:14px; text-transform:uppercase; letter-spacing:2px; }
+  .hero .big { font-size: 96px; font-weight:200; line-height:1.1; margin:6px 0; }
+  .hero .big small { font-size:36px; vertical-align: top; opacity:.8; }
+  .hero .sub { font-size:16px; opacity:.95; }
+  .hero .mood { display:inline-block; margin-top:12px; padding:6px 16px; border-radius:20px; background:rgba(255,255,255,.2); font-size:14px; }
+  .grid { display:grid; gap:12px; margin-top:12px; grid-template-columns: repeat(auto-fit, minmax(150px,1fr)); }
+  .card { background:var(--card); border-radius:18px; padding:16px; border:1px solid var(--line); }
+  .card .k { color:var(--mute); font-size:12px; text-transform:uppercase; letter-spacing:1px; }
+  .card .v { font-size:28px; font-weight:600; margin-top:6px; }
+  .card .v small { font-size:14px; color:var(--mute); font-weight:400; }
+  .cold { color:#6ec6ff; } .hot { color:#ff8a65; } .ok { color:#3ddc84; }
+  h2 { font-size:15px; text-transform:uppercase; letter-spacing:1.5px; color:var(--mute); margin:28px 4px 10px; font-weight:600; }
+  .tabs { display:flex; gap:6px; margin-bottom:10px; }
+  .tab { background:var(--card2); border:0; color:var(--mute); padding:8px 16px; border-radius:20px; cursor:pointer; font-size:14px; }
+  .tab.active { background:var(--accent); color:#04202b; font-weight:600; }
+  .chartbox { background:var(--card); border-radius:18px; padding:14px; border:1px solid var(--line); height:320px; }
+  .bar { height:14px; border-radius:8px; overflow:hidden; display:flex; background:var(--card2); margin-top:10px; }
+  .bar span { display:block; height:100%; }
+  .legend { display:flex; gap:16px; font-size:12px; color:var(--mute); margin-top:8px; flex-wrap:wrap; }
+  .legend b { display:inline-block; width:10px; height:10px; border-radius:3px; margin-right:5px; vertical-align:middle; }
+  table { width:100%; border-collapse:collapse; background:var(--card); border-radius:18px; overflow:hidden; border:1px solid var(--line); }
+  th, td { padding:10px 8px; text-align:center; font-size:14px; }
+  th { color:var(--mute); font-size:12px; text-transform:uppercase; letter-spacing:1px; background:var(--card2); }
+  tr + tr td { border-top:1px solid var(--line); }
+  .mini { width:70px; height:8px; border-radius:6px; background:var(--card2); display:inline-block; vertical-align:middle; overflow:hidden; }
+  .mini span { display:block; height:100%; background:#3ddc84; }
+  .row { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+  .switch { position:relative; width:64px; height:34px; background:#33405f; border-radius:20px; cursor:pointer; transition:.25s; flex:none; }
+  .switch::after { content:""; position:absolute; top:4px; left:4px; width:26px; height:26px; border-radius:50%; background:#fff; transition:.25s; }
+  .switch.on { background:#3ddc84; } .switch.on::after { left:34px; }
+  .btn { background:var(--accent); color:#04202b; border:0; padding:12px 22px; border-radius:12px; font-size:15px; font-weight:600; cursor:pointer; }
+  footer { text-align:center; color:var(--mute); font-size:12px; padding:24px 0 8px; }
 </style>
 </head>
 <body>
-<h1>ESP8266</h1>
-<div class="temp"><span id="temp">--</span> &deg;C</div>
-<p>LED: <b id="led">?</b></p>
-<button onclick="send('ON')">Vklopi</button>
-<button onclick="send('OFF')">Izklopi</button>
-<button onclick="send('TOGGLE')">Preklopi</button>
-<p id="status">povezovanje...</p>
+<div class="wrap">
+  <header>
+    <h1>&#127777; Vremenska postaja</h1>
+    <span class="pill" id="status"><i></i><span id="stxt">povezovanje...</span></span>
+  </header>
 
-<h2>Statistika</h2>
-<p id="cards">čakam na podatke...</p>
-<pre id="analysis" style="display:inline-block;text-align:left;font-size:16px"></pre>
-<p id="trend"></p>
-<div style="max-width:900px;margin:auto">
-  <h3>Zadnjih 24 ur (urna povprečja)</h3><canvas id="c24"></canvas>
-  <h3>Zadnjih 7 dni (urna povprečja)</h3><canvas id="c7"></canvas>
-  <h3>Zadnjih 14 dni (urna povprečja)</h3><canvas id="c14"></canvas>
+  <section class="hero" id="hero">
+    <div class="label">Trenutna temperatura</div>
+    <div class="big"><span id="temp">--</span><small>&deg;C</small></div>
+    <div class="sub" id="trend">Trend: ...</div>
+    <div class="mood" id="mood">...</div>
+  </section>
+
+  <div class="grid">
+    <div class="card"><div class="k">Min danes</div><div class="v cold" id="smin">--<small> &deg;C</small></div></div>
+    <div class="card"><div class="k">Max danes</div><div class="v hot" id="smax">--<small> &deg;C</small></div></div>
+    <div class="card"><div class="k">Povprečje danes</div><div class="v" id="savg">--<small> &deg;C</small></div></div>
+    <div class="card"><div class="k">Osvetlitev LED</div>
+      <div class="row" style="margin-top:8px"><b id="led">?</b><div class="switch" id="sw" onclick="send('TOGGLE')"></div></div></div>
+  </div>
+
+  <h2>Graf temperature</h2>
+  <div class="tabs">
+    <button class="tab active" data-n="24" onclick="setRange(24,this)">24 ur</button>
+    <button class="tab" data-n="168" onclick="setRange(168,this)">7 dni</button>
+    <button class="tab" data-n="336" onclick="setRange(336,this)">14 dni</button>
+  </div>
+  <div class="chartbox"><canvas id="chart"></canvas></div>
+
+  <h2>Analiza prostora (danes)</h2>
+  <div class="card">
+    <div class="grid" style="margin:0">
+      <div><div class="k">Nad 25&deg;C</div><div class="v hot" id="ahi">--</div></div>
+      <div><div class="k">Optimalno 20-23&deg;C</div><div class="v ok" id="aopt">--</div></div>
+      <div><div class="k">Pod 18&deg;C</div><div class="v cold" id="alo">--</div></div>
+    </div>
+    <div class="bar" id="bar"></div>
+    <div class="legend"><span><b style="background:#6ec6ff"></b>Hladno (&lt;18)</span><span><b style="background:#3ddc84"></b>Optimalno (20-23)</span><span><b style="background:#ff8a65"></b>Toplo (&gt;25)</span><span><b style="background:#475577"></b>Ostalo</span></div>
+  </div>
+
+  <h2>Zadnjih 14 dni</h2>
+  <table>
+    <thead><tr><th>Dan</th><th>Min</th><th>Max</th><th>Povpr.</th><th>&gt;25&deg;C</th><th>&lt;18&deg;C</th><th>Optimalno</th></tr></thead>
+    <tbody id="days"><tr><td colspan="7">čakam na podatke...</td></tr></tbody>
+  </table>
+
+  <h2>Izvoz</h2>
+  <button class="btn" onclick="downloadCsv()">&#11015; Prenesi CSV</button>
+
+  <footer id="upd">ESP8266 &bull; MQTT</footer>
 </div>
-<h3>Po dnevih (14 dni)</h3>
-<table>
-  <thead><tr><th>Dan</th><th>Min</th><th>Max</th><th>Povpr.</th><th>Ur &gt;25&deg;C</th><th>Ur &lt;18&deg;C</th><th>20-23&deg;C</th></tr></thead>
-  <tbody id="days"></tbody>
-</table>
-
-<h2>CSV</h2>
-<button class="dl" onclick="downloadCsv()">Prenesi CSV</button>
 
 <script src="https://unpkg.com/mqtt@5/dist/mqtt.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 <script>
   const ID = "esp-e3a9f4685a";
-  let csv = "";
+  let csv = "", stats = null, range = 24, chart = null;
+  const $ = id => document.getElementById(id);
   const c = mqtt.connect("wss://broker.hivemq.com:8884/mqtt");
   c.on("connect", () => {
-    document.getElementById("status").textContent = "povezano";
-    c.subscribe([ID + "/temperature", ID + "/distance", ID + "/led/state", ID + "/history", ID + "/stats"]);
+    $("status").classList.add("on"); $("stxt").textContent = "povezano";
+    c.subscribe([ID + "/temperature", ID + "/led/state", ID + "/history", ID + "/stats"]);
   });
-  c.on("close", () => document.getElementById("status").textContent = "ni povezave");
+  c.on("close", () => { $("status").classList.remove("on"); $("stxt").textContent = "ni povezave"; });
   c.on("message", (t, m) => {
     const s = m.toString();
-    if (t.endsWith("/temperature")) document.getElementById("temp").textContent = s;
-    if (t.endsWith("/led/state")) document.getElementById("led").textContent = s;
+    if (t.endsWith("/temperature")) showTemp(parseFloat(s));
+    if (t.endsWith("/led/state")) { $("led").textContent = s === "ON" ? "Vklopljena" : "Izklopljena"; $("sw").classList.toggle("on", s === "ON"); }
     if (t.endsWith("/history")) showHistory(s);
-    if (t.endsWith("/stats")) showStats(JSON.parse(s));
+    if (t.endsWith("/stats")) { stats = JSON.parse(s); showStats(); }
   });
   function send(cmd) { c.publish(ID + "/led/set", cmd); }
 
-  const charts = {};
-  function draw(id, labels, data, color) {
-    if (charts[id]) { charts[id].data.labels = labels; charts[id].data.datasets[0].data = data; charts[id].update(); return; }
-    charts[id] = new Chart(document.getElementById(id), {
-      type: "line",
-      data: { labels, datasets: [{ data, borderColor: color, pointRadius: 0, borderWidth: 2, tension: 0.2, spanGaps: true }] },
-      options: { plugins: { legend: { display: false } }, scales: { x: { ticks: { maxTicksLimit: 8 } } } }
-    });
+  function colorFor(t) {
+    if (t < 5) return ["#1e3a8a", "#38bdf8", "Zelo mrzlo"];
+    if (t < 18) return ["#2563eb", "#22d3ee", "Hladno"];
+    if (t < 20) return ["#0891b2", "#34d399", "Malo sveže"];
+    if (t <= 23) return ["#059669", "#34d399", "Optimalno"];
+    if (t <= 25) return ["#d97706", "#fbbf24", "Toplo"];
+    if (t <= 30) return ["#ea580c", "#f59e0b", "Vroče"];
+    return ["#b91c1c", "#f97316", "Zelo vroče"];
   }
-  function showStats(s) {
-    const now = new Date(s.t.replace(" ", "T"));
-    const H = s.h.length;
-    const labels = s.h.map((_, i) => {
+  function showTemp(t) {
+    if (isNaN(t)) return;
+    $("temp").textContent = t.toFixed(1);
+    const [a, b, mood] = colorFor(t);
+    $("hero").style.background = "linear-gradient(135deg," + a + "," + b + ")";
+    $("mood").textContent = mood;
+    $("upd").textContent = "Posodobljeno " + new Date().toLocaleTimeString("sl-SI") + " • ESP8266 • MQTT";
+  }
+
+  function setRange(n, el) {
+    range = n;
+    document.querySelectorAll(".tab").forEach(b => b.classList.toggle("active", b === el));
+    showStats();
+  }
+
+  function showStats() {
+    if (!stats) return;
+    const now = new Date(stats.t.replace(" ", "T"));
+    const H = stats.h.length;
+    const labels = stats.h.map((_, i) => {
       const d = new Date(now.getTime() - (H - 1 - i) * 3600000);
-      return d.getDate() + "." + (d.getMonth() + 1) + ". " + String(d.getHours()).padStart(2, "0") + ":00";
-    });
-    draw("c24", labels.slice(-24), s.h.slice(-24), "#d33");
-    draw("c7", labels.slice(-168), s.h.slice(-168), "#27c");
-    draw("c14", labels, s.h, "#2a2");
-    const days = s.d.filter(x => x);
-    document.getElementById("days").innerHTML = days.slice().reverse().map(d =>
-      "<tr><td>" + d[0] + "</td><td>" + d[1] + "</td><td>" + d[2] + "</td><td>" + d[3] + "</td><td>" +
-      (d[4] / 60).toFixed(1) + " h</td><td>" + (d[5] / 60).toFixed(1) + " h</td><td>" + Math.round(100 * d[6] / d[7]) + "%</td></tr>").join("");
+      return range <= 24 ? String(d.getHours()).padStart(2, "0") + ":00"
+                         : d.getDate() + "." + (d.getMonth() + 1) + ". " + String(d.getHours()).padStart(2, "0") + "h";
+    }).slice(-range);
+    const data = stats.h.slice(-range);
+    const ctx = $("chart").getContext("2d");
+    const g = ctx.createLinearGradient(0, 0, 0, 300);
+    g.addColorStop(0, "rgba(76,201,240,.45)"); g.addColorStop(1, "rgba(76,201,240,0)");
+    if (!chart) {
+      chart = new Chart(ctx, {
+        type: "line",
+        data: { labels, datasets: [{ data, borderColor: "#4cc9f0", backgroundColor: g, fill: true, pointRadius: 0, borderWidth: 2.5, tension: 0.35, spanGaps: true }] },
+        options: {
+          maintainAspectRatio: false, interaction: { mode: "index", intersect: false },
+          plugins: { legend: { display: false }, tooltip: { callbacks: { label: x => x.parsed.y + " °C" } } },
+          scales: {
+            x: { ticks: { color: "#8a97b5", maxTicksLimit: 8 }, grid: { display: false } },
+            y: { ticks: { color: "#8a97b5", callback: v => v + "°" }, grid: { color: "#26324f" } }
+          }
+        }
+      });
+    } else {
+      chart.data.labels = labels; chart.data.datasets[0].data = data; chart.data.datasets[0].backgroundColor = g; chart.update();
+    }
+
+    const days = stats.d.filter(x => x);
+    $("days").innerHTML = days.slice().reverse().map(d => {
+      const pct = Math.round(100 * d[6] / d[7]);
+      return "<tr><td><b>" + d[0] + "</b></td><td class='cold'>" + d[1] + "°</td><td class='hot'>" + d[2] + "°</td><td>" + d[3] + "°</td><td>" +
+        (d[4] / 60).toFixed(1) + " h</td><td>" + (d[5] / 60).toFixed(1) + " h</td><td><span class='mini'><span style='width:" + pct + "%'></span></span> " + pct + "%</td></tr>";
+    }).join("");
+
     const t = days[days.length - 1];
     if (t) {
-      const cur = document.getElementById("temp").textContent;
-      document.getElementById("cards").innerHTML = "Trenutno: <b>" + cur + " &deg;C</b> | Min danes: <b>" + t[1] +
-        " &deg;C</b> | Max danes: <b>" + t[2] + " &deg;C</b> | Povprečje danes: <b>" + t[3] + " &deg;C</b>";
-      document.getElementById("analysis").textContent =
-        "Danes:\nMin: " + t[1] + "°C\nMax: " + t[2] + "°C\nAvg: " + t[3] + "°C\n\nNad 25°C: " + (t[4] / 60).toFixed(1) +
-        "h\n20-23°C: " + Math.round(100 * t[6] / t[7]) + "% časa\nPod 18°C: " + (t[5] / 60).toFixed(1) + "h";
+      $("smin").innerHTML = t[1] + "<small> °C</small>";
+      $("smax").innerHTML = t[2] + "<small> °C</small>";
+      $("savg").innerHTML = t[3] + "<small> °C</small>";
+      $("ahi").textContent = (t[4] / 60).toFixed(1) + " h";
+      $("alo").textContent = (t[5] / 60).toFixed(1) + " h";
+      const n = t[7], opt = Math.round(100 * t[6] / n), hi = 100 * t[4] / n, lo = 100 * t[5] / n;
+      $("aopt").textContent = opt + " %";
+      const other = Math.max(0, 100 - lo - opt - hi);
+      $("bar").innerHTML = "<span style='width:" + lo + "%;background:#6ec6ff'></span><span style='width:" + opt + "%;background:#3ddc84'></span><span style='width:" + other +
+        "%;background:#475577'></span><span style='width:" + hi + "%;background:#ff8a65'></span>";
     }
   }
 
   function showHistory(s) {
     const lines = s.split("\n").filter(l => l && !l.startsWith("time,"));
-    csv = "time,temperature_c,distance_cm\n" + lines.join("\n") + "\n";
+    csv = "time,temperature_c\n" + lines.map(l => l.split(",").slice(0, 2).join(",")).join("\n") + "\n";
     if (lines.length > 1) {
       const a = parseFloat(lines[0].split(",")[1]), b = parseFloat(lines[lines.length - 1].split(",")[1]);
-      const d = b - a;
-      const mins = lines.length - 1;
-      document.getElementById("trend").innerHTML = "Trend: <b>" + (Math.abs(d) < 0.3 ? "Stable →" : d > 0 ? "Rising ↑" : "Falling ↓") +
-        "</b> " + (d >= 0 ? "+" : "") + d.toFixed(1) + "°C zadnjih " + mins + " min";
+      const d = b - a, mins = lines.length - 1;
+      const arrow = Math.abs(d) < 0.3 ? "→ Stabilno" : d > 0 ? "↑ Narašča" : "↓ Pada";
+      $("trend").textContent = arrow + " " + (d >= 0 ? "+" : "") + d.toFixed(1) + "°C v zadnjih " + mins + " min";
     }
   }
   function downloadCsv() {
