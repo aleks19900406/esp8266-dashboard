@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="sl">
 <head>
 <meta charset="utf-8">
@@ -251,7 +251,7 @@
   }
 
   function renderStatus() {
-    const age = nowS() - S.seen, on = S.seen > 0 && age < 150;
+    const age = nowS() - S.seen, on = S.seen > 0 && age < 780;
     $("status").classList.toggle("on", on);
     $("stxt").textContent = !c.connected ? "ni povezave z strežnikom" : S.seen === 0 ? "ni podatkov"
       : on ? "povezano" : "naprava ni povezana (zadnjič pred " + Math.round(age / 60) + " min)";
