@@ -143,6 +143,15 @@
     <div class="hint">Ukaze v aplikaciji ntfy (tema aleksAlarm1990): <b>temp</b>, <b>min</b>, <b>max</b>, <b>povprečje</b>, <b>danes</b>. Odgovor pride ob naslednjem zbujanju (do 1 min).</div>
   </div>
 
+  <h2>Napajanje</h2>
+  <div class="card">
+    <div class="btns" style="margin-top:0">
+      <button class="btn" id="pwBat" onclick="setPower('bat')">&#128267; Baterija (varčevanje)</button>
+      <button class="btn ghost" id="pwExt" onclick="setPower('ext')">&#128268; Napajalnik (stalno vklopljen)</button>
+    </div>
+    <div class="hint" id="pwMsg">Baterija: ESP spi in pošlje temperaturo ob spremembi 0,2 &deg;C ali vsakih 10 min. Napajalnik: ESP je stalno vklopljen in temperaturo pošilja vsaki 2 s.</div>
+  </div>
+
   <h2>Podatki</h2>
   <div class="card">
     <div class="btns" style="margin-top:0">
@@ -186,7 +195,7 @@
   // ---------- MQTT ----------
   const c = mqtt.connect("wss://broker.hivemq.com:8884/mqtt");
   c.on("connect", () => {
-    c.subscribe([ID + "/temperature", ID + "/seen", ID + "/stats/cur", ID + "/stats/m", ID + "/stats/h", ID + "/alarm/state"]);
+    c.subscribe([ID + "/temperature", ID + "/seen", ID + "/stats/cur", ID + "/stats/m", ID + "/stats/h", ID + "/alarm/state", ID + "/power"]);
     renderStatus();
   });
   c.on("close", () => renderStatus());
@@ -199,6 +208,7 @@
       else if (t.endsWith("/stats/m")) { const j = JSON.parse(s); S.m = j.m; S.rs = j.rs || 0; }
       else if (t.endsWith("/stats/h")) S.h = JSON.parse(s).h;
       else if (t.endsWith("/alarm/state")) { showAlarms(s); return; }
+      else if (t.endsWith("/power")) { showPower(s); return; }
     } catch (e) { return; }
     renderAll();
   });
@@ -432,6 +442,23 @@
   function resetAlarms() {
     $("ahiIn").value = DEF_ALARM.hi; $("aloIn").value = DEF_ALARM.lo; $("arIn").value = DEF_ALARM.rate; $("aen").classList.add("on");
     sendAlarms(DEF_ALARM.hi, DEF_ALARM.lo, DEF_ALARM.rate, true);
+  }
+
+  // ---------- napajanje ----------
+  function showPower(s) {
+    const ext = s === "ext";
+    $("pwBat").classList.toggle("ghost", ext);
+    $("pwExt").classList.toggle("ghost", !ext);
+    $("pwMsg").textContent = ext
+      ? "Izbrano: napajalnik. ESP je stalno vklopljen in pošilja temperaturo vsaki 2 s."
+      : "Izbrano: baterija. ESP spi in pošlje temperaturo ob spremembi 0,2 \u00b0C ali vsakih 10 min.";
+  }
+  function setPower(mode) {
+    c.publish(ID + "/power", mode, { retain: true });
+    showPower(mode);
+    $("pwMsg").textContent += mode === "ext"
+      ? " Prehod se izvede ob naslednjem zbujanju ESP-ja (do 10 min)."
+      : " Prehod se izvede v nekaj sekundah.";
   }
 
   // ---------- ponastavitve podatkov ----------
