@@ -9,7 +9,7 @@
   * { box-sizing: border-box; }
   body { margin:0; font-family: "Segoe UI", system-ui, sans-serif; background: var(--bg); color: var(--text); }
   .wrap { max-width: 1000px; margin: 0 auto; padding: 16px; }
-  header { display:flex; justify-content:space-between; align-items:center; padding: 8px 4px 16px; }
+  header { display:flex; justify-content:space-between; align-items:center; padding: 8px 4px 16px; gap:8px; }
   header h1 { font-size: 18px; margin:0; font-weight:600; letter-spacing:.5px; }
   .pill { font-size:12px; padding:4px 10px; border-radius:20px; background:var(--card2); color:var(--mute); }
   .pill i { display:inline-block; width:8px; height:8px; border-radius:50%; background:#e55; margin-right:6px; }
@@ -27,11 +27,13 @@
   .card .v { font-size:28px; font-weight:600; margin-top:6px; }
   .card .v small { font-size:14px; color:var(--mute); font-weight:400; }
   .cold { color:#6ec6ff; } .hot { color:#ff8a65; } .ok { color:#3ddc84; }
-  h2 { font-size:15px; text-transform:uppercase; letter-spacing:1.5px; color:var(--mute); margin:28px 4px 10px; font-weight:600; }
-  .tabs { display:flex; gap:6px; margin-bottom:10px; }
+  h2 { font-size:15px; text-transform:uppercase; letter-spacing:1.5px; color:var(--mute); margin:28px 4px 10px; font-weight:600; display:flex; justify-content:space-between; align-items:center; }
+  h2 .acts { display:flex; gap:6px; text-transform:none; letter-spacing:0; }
+  .tabs { display:flex; gap:6px; margin-bottom:10px; flex-wrap:wrap; }
   .tab { background:var(--card2); border:0; color:var(--mute); padding:8px 16px; border-radius:20px; cursor:pointer; font-size:14px; }
   .tab.active { background:var(--accent); color:#04202b; font-weight:600; }
-  .chartbox { background:var(--card); border-radius:18px; padding:14px; border:1px solid var(--line); height:320px; }
+  .chartbox { background:var(--card); border-radius:18px; padding:14px; border:1px solid var(--line); height:360px; position:relative; }
+  .hint { color:var(--mute); font-size:12px; margin:6px 4px 0; }
   .bar { height:14px; border-radius:8px; overflow:hidden; display:flex; background:var(--card2); margin-top:10px; }
   .bar span { display:block; height:100%; }
   .legend { display:flex; gap:16px; font-size:12px; color:var(--mute); margin-top:8px; flex-wrap:wrap; }
@@ -40,15 +42,17 @@
   th, td { padding:10px 8px; text-align:center; font-size:14px; }
   th { color:var(--mute); font-size:12px; text-transform:uppercase; letter-spacing:1px; background:var(--card2); }
   tr + tr td { border-top:1px solid var(--line); }
-  .mini { width:70px; height:8px; border-radius:6px; background:var(--card2); display:inline-block; vertical-align:middle; overflow:hidden; }
-  .mini span { display:block; height:100%; background:#3ddc84; }
-  .row { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+  .row { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
   .switch { position:relative; width:64px; height:34px; background:#33405f; border-radius:20px; cursor:pointer; transition:.25s; flex:none; }
   .switch::after { content:""; position:absolute; top:4px; left:4px; width:26px; height:26px; border-radius:50%; background:#fff; transition:.25s; }
   .switch.on { background:#3ddc84; } .switch.on::after { left:34px; }
   .btn { background:var(--accent); color:#04202b; border:0; padding:12px 22px; border-radius:12px; font-size:15px; font-weight:600; cursor:pointer; }
+  .btn.ghost { background:var(--card2); color:var(--text); font-weight:500; }
+  .btn.danger { background:#7f1d1d; color:#fff; }
+  .btn.sm { padding:6px 12px; font-size:13px; border-radius:10px; }
   .fld { display:block; color:var(--mute); font-size:12px; text-transform:uppercase; letter-spacing:1px; }
   .fld input { display:block; width:100%; margin-top:6px; padding:10px 12px; font-size:18px; background:var(--card2); border:1px solid var(--line); border-radius:10px; color:var(--text); }
+  .btns { display:flex; gap:8px; flex-wrap:wrap; margin-top:14px; align-items:center; }
   footer { text-align:center; color:var(--mute); font-size:12px; padding:24px 0 8px; }
 </style>
 </head>
@@ -70,34 +74,58 @@
     <div class="card"><div class="k">Min danes</div><div class="v cold" id="smin">--<small> &deg;C</small></div></div>
     <div class="card"><div class="k">Max danes</div><div class="v hot" id="smax">--<small> &deg;C</small></div></div>
     <div class="card"><div class="k">Povprečje danes</div><div class="v" id="savg">--<small> &deg;C</small></div></div>
-    <div class="card"><div class="k">Osvetlitev LED</div>
-      <div class="row" style="margin-top:8px"><b id="led">?</b><div class="switch" id="sw" onclick="send('TOGGLE')"></div></div></div>
   </div>
+  <div class="hint" id="cardsNote"></div>
 
-  <h2>Graf temperature</h2>
-  <div class="tabs">
-    <button class="tab active" data-n="24" onclick="setRange(24,this)">24 ur</button>
-    <button class="tab" data-n="168" onclick="setRange(168,this)">7 dni</button>
-    <button class="tab" data-n="336" onclick="setRange(336,this)">14 dni</button>
+  <h2>Graf temperature
+    <span class="acts"><button class="btn ghost sm" onclick="chart && chart.resetZoom()">Ponastavi zoom</button></span>
+  </h2>
+  <div class="tabs" id="rangeTabs">
+    <button class="tab active" data-v="24">24 ur</button>
+    <button class="tab" data-v="7">7 dni</button>
+    <button class="tab" data-v="30">30 dni</button>
+    <button class="tab" data-v="0">Vse</button>
   </div>
   <div class="chartbox"><canvas id="chart"></canvas></div>
+  <div class="hint">Kolesce miške ali dva prsta = zoom, vlečenje = premik. Senčeno območje je min&ndash;max.</div>
 
-  <h2>Analiza prostora (danes)</h2>
+  <h2>Analiza prostora</h2>
+  <div class="tabs" id="periodTabs">
+    <button class="tab active" data-v="1">Danes</button>
+    <button class="tab" data-v="7">7 dni</button>
+    <button class="tab" data-v="30">30 dni</button>
+    <button class="tab" data-v="0">Vse</button>
+  </div>
   <div class="card">
     <div class="grid" style="margin:0">
-      <div><div class="k">Nad 25&deg;C</div><div class="v hot" id="ahi">--</div></div>
-      <div><div class="k">Optimalno 20-23&deg;C</div><div class="v ok" id="aopt">--</div></div>
-      <div><div class="k">Pod 18&deg;C</div><div class="v cold" id="alo">--</div></div>
+      <div><div class="k" id="kHot">Nad</div><div class="v hot" id="ahi">--</div></div>
+      <div><div class="k" id="kOpt">Optimalno</div><div class="v ok" id="aopt">--</div></div>
+      <div><div class="k" id="kCold">Pod</div><div class="v cold" id="alo">--</div></div>
     </div>
     <div class="bar" id="bar"></div>
-    <div class="legend"><span><b style="background:#6ec6ff"></b>Hladno (&lt;18)</span><span><b style="background:#3ddc84"></b>Optimalno (20-23)</span><span><b style="background:#ff8a65"></b>Toplo (&gt;25)</span><span><b style="background:#475577"></b>Ostalo</span></div>
+    <div class="legend" id="legend"></div>
   </div>
 
   <h2>Zadnjih 14 dni</h2>
   <table>
-    <thead><tr><th>Dan</th><th>Min</th><th>Max</th><th>Povpr.</th><th>&gt;25&deg;C</th><th>&lt;18&deg;C</th><th>Optimalno</th></tr></thead>
+    <thead><tr><th>Dan</th><th>Min</th><th>Max</th><th>Povpr.</th><th id="thHot">Toplo</th><th id="thCold">Hladno</th><th>Optimalno</th></tr></thead>
     <tbody id="days"><tr><td colspan="7">čakam na podatke...</td></tr></tbody>
   </table>
+
+  <h2>Nastavitve analize</h2>
+  <div class="card">
+    <div class="grid" style="margin:0">
+      <label class="fld">Toplo nad (&deg;C)<input type="number" step="0.5" id="cHot"></label>
+      <label class="fld">Hladno pod (&deg;C)<input type="number" step="0.5" id="cCold"></label>
+      <label class="fld">Optimalno od (&deg;C)<input type="number" step="0.5" id="cOptLo"></label>
+      <label class="fld">Optimalno do (&deg;C)<input type="number" step="0.5" id="cOptHi"></label>
+    </div>
+    <div class="btns">
+      <button class="btn" onclick="saveCfg()">Shrani</button>
+      <button class="btn ghost" onclick="resetCfg()">Privzete vrednosti</button>
+      <span class="pill" id="cfgMsg">shranjeno v brskalniku</span>
+    </div>
+  </div>
 
   <h2>Alarmi</h2>
   <div class="card">
@@ -107,151 +135,325 @@
       <label class="fld">Opozori pod (&deg;C)<input type="number" step="0.5" id="aloIn" value="5"></label>
       <label class="fld">Hitra sprememba v 10 min (&deg;C)<input type="number" step="0.5" min="0.5" id="arIn" value="3"></label>
     </div>
-    <div class="row" style="margin-top:14px"><button class="btn" onclick="saveAlarms()">Shrani nastavitve</button><span id="asave" class="pill">čakam na ESP...</span></div>
+    <div class="btns">
+      <button class="btn" onclick="saveAlarms()">Shrani nastavitve</button>
+      <button class="btn ghost" onclick="resetAlarms()">Privzete vrednosti</button>
+      <span id="asave" class="pill">čakam na ESP...</span>
+    </div>
+    <div class="hint">Ukaze v aplikaciji ntfy (tema aleksAlarm1990): <b>temp</b>, <b>min</b>, <b>max</b>, <b>povprečje</b>, <b>danes</b>. Odgovor pride ob naslednjem zbujanju (do 1 min).</div>
   </div>
 
-  <h2>Izvoz</h2>
-  <button class="btn" onclick="downloadCsv()">&#11015; Prenesi CSV</button>
+  <h2>Podatki</h2>
+  <div class="card">
+    <div class="btns" style="margin-top:0">
+      <button class="btn ghost" onclick="resetCards()">Ponastavi min / max / povprečje</button>
+      <button class="btn danger" onclick="clearHistory()">Izbriši zgodovino in graf</button>
+      <button class="btn ghost" onclick="resetAll()">Ponastavi vse nastavitve</button>
+    </div>
+    <div class="hint" id="dataMsg">Ukaz se na ESP izvede ob naslednjem zbujanju (do 1 min), stran pa se posodobi takoj.</div>
+  </div>
 
   <footer id="upd">ESP8266 &bull; MQTT</footer>
 </div>
 
 <script src="https://unpkg.com/mqtt@5/dist/mqtt.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<script src="https://cdn.jsdelivr.net/npm/hammerjs@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2"></script>
 <script>
   const ID = "esp-e3a9f4685a";
-  let csv = "", stats = null, range = 24, chart = null;
   const $ = id => document.getElementById(id);
+
+  // ---------- nastavitve in stanje ----------
+  const DEF_CFG = { hot: 25, cold: 18, optLo: 20, optHi: 23 };
+  const DEF_ALARM = { hi: 30, lo: 5, rate: 3, en: 1 };
+  const store = {
+    get(k, d) { try { const v = JSON.parse(localStorage.getItem("wx." + k)); return v == null ? d : v; } catch (e) { return d; } },
+    set(k, v) { localStorage.setItem("wx." + k, JSON.stringify(v)); }
+  };
+  let cfg = Object.assign({}, DEF_CFG, store.get("cfg", {}));
+  let loc = Object.assign({ cardsFrom: 0, histFrom: 0 }, store.get("loc", {}));
+  const S = { m: [], h: [], cur: null, rs: 0, temp: null, seen: 0 };
+  let range = 24, period = 1, chart = null;
+
+  const nowS = () => Date.now() / 1000;
+  const dayStart = () => { const d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime() / 1000; };
+  const cardsFrom = () => Math.max(S.rs, loc.cardsFrom, loc.histFrom);
+  const fmt = (v, d = 1) => v == null || isNaN(v) ? "--" : v.toFixed(d);
+  const fmtH = v => v.toFixed(1) + " h";
+
+  // ---------- MQTT ----------
   const c = mqtt.connect("wss://broker.hivemq.com:8884/mqtt");
   c.on("connect", () => {
-    $("stxt").textContent = "čakam na napravo...";
-    c.subscribe([ID + "/temperature", ID + "/led/state", ID + "/history", ID + "/stats", ID + "/alarm/state", ID + "/seen"]);
+    c.subscribe([ID + "/temperature", ID + "/seen", ID + "/stats/cur", ID + "/stats/m", ID + "/stats/h", ID + "/alarm/state"]);
+    renderStatus();
   });
-  let seen = 0;
-  function upd() {
-    const age = Date.now() / 1000 - seen, on = seen > 0 && age < 150;
-    $("status").classList.toggle("on", on);
-    $("stxt").textContent = seen === 0 ? "ni podatkov" : on ? "povezano" : "naprava ni povezana (zadnjič pred " + Math.round(age / 60) + " min)";
-  }
-  setInterval(upd, 5000);
-  c.on("close", () => { seen = 0; upd(); });
+  c.on("close", () => renderStatus());
   c.on("message", (t, m) => {
     const s = m.toString();
-    if (t.endsWith("/seen")) { seen = parseInt(s); upd(); return; }
-    if (t.endsWith("/temperature")) showTemp(parseFloat(s));
-    if (t.endsWith("/led/state")) { $("led").textContent = s === "ON" ? "Vklopljena" : "Izklopljena"; $("sw").classList.toggle("on", s === "ON"); }
-    if (t.endsWith("/history")) showHistory(s);
-    if (t.endsWith("/stats")) { stats = JSON.parse(s); showStats(); }
-    if (t.endsWith("/alarm/state")) showAlarms(s);
+    try {
+      if (t.endsWith("/temperature")) S.temp = parseFloat(s);
+      else if (t.endsWith("/seen")) S.seen = parseInt(s);
+      else if (t.endsWith("/stats/cur")) S.cur = JSON.parse(s);
+      else if (t.endsWith("/stats/m")) { const j = JSON.parse(s); S.m = j.m; S.rs = j.rs || 0; }
+      else if (t.endsWith("/stats/h")) S.h = JSON.parse(s).h;
+      else if (t.endsWith("/alarm/state")) { showAlarms(s); return; }
+    } catch (e) { return; }
+    renderAll();
   });
+
+  // ---------- podatki ----------
+  // urni zapisi [ts, avg, min, max, teža v urah]: shranjeni + še ne zaključene ure iz 10-min zapisov
+  function hourlyRows(from) {
+    const lastH = S.h.length ? S.h[S.h.length - 1][0] : 0;
+    const out = S.h.filter(r => r[0] >= from).map(r => [r[0], r[1], r[2], r[3], 1]);
+    const agg = {};
+    const src = S.m.concat(S.cur ? [S.cur] : []);
+    src.forEach(r => {
+      const hs = r[0] - r[0] % 3600;
+      if (hs <= lastH || r[0] < from) return;
+      const a = agg[hs] || (agg[hs] = { s: 0, n: 0, mn: 1e9, mx: -1e9 });
+      a.s += r[1]; a.n++; a.mn = Math.min(a.mn, r[2]); a.mx = Math.max(a.mx, r[3]);
+    });
+    Object.keys(agg).sort().forEach(k => { const a = agg[k]; out.push([+k, a.s / a.n, a.mn, a.mx, a.n / 6]); });
+    return out;
+  }
+
+  function todayStats() {
+    const since = Math.max(dayStart(), cardsFrom());
+    let mn = 1e9, mx = -1e9, sum = 0, w = 0;
+    S.m.forEach(r => {
+      if (r[0] < since) return;
+      mn = Math.min(mn, r[2]); mx = Math.max(mx, r[3]); sum += r[1] * 10; w += 10;
+    });
+    if (S.cur && S.cur[0] + 600 > since) {
+      const k = Math.min(10, Math.max(1, Math.round((nowS() - S.cur[0]) / 60)));
+      mn = Math.min(mn, S.cur[2]); mx = Math.max(mx, S.cur[3]); sum += S.cur[1] * k; w += k;
+    }
+    if (S.temp != null && S.seen >= since) { mn = Math.min(mn, S.temp); mx = Math.max(mx, S.temp); }
+    return w ? { mn, mx, avg: sum / w } : null;
+  }
+
+  // ---------- prikaz ----------
+  function theme(t) {
+    if (t < cfg.cold) return ["#1d4ed8", "#38bdf8", "Hladno"];
+    if (t < cfg.optLo) return ["#0891b2", "#34d399", "Sveže"];
+    if (t <= cfg.optHi) return ["#059669", "#84cc16", "Optimalno"];
+    if (t <= cfg.hot) return ["#d97706", "#fbbf24", "Toplo"];
+    return ["#dc2626", "#f97316", "Vroče"];
+  }
+  function lineColor(t) {
+    if (t < cfg.cold) return "#6ec6ff";
+    if (t > cfg.hot) return "#ff8a65";
+    if (t >= cfg.optLo && t <= cfg.optHi) return "#3ddc84";
+    return "#4cc9f0";
+  }
+
+  function renderStatus() {
+    const age = nowS() - S.seen, on = S.seen > 0 && age < 150;
+    $("status").classList.toggle("on", on);
+    $("stxt").textContent = !c.connected ? "ni povezave z strežnikom" : S.seen === 0 ? "ni podatkov"
+      : on ? "povezano" : "naprava ni povezana (zadnjič pred " + Math.round(age / 60) + " min)";
+    $("upd").textContent = S.seen ? "Zadnja meritev: " + new Date(S.seen * 1000).toLocaleString("sl-SI") : "ESP8266 \u2022 MQTT";
+  }
+
+  function renderHero() {
+    if (S.temp == null) return;
+    $("temp").textContent = fmt(S.temp);
+    const th = theme(S.temp);
+    $("hero").style.background = "linear-gradient(135deg," + th[0] + "," + th[1] + ")";
+    $("mood").textContent = th[2];
+    const ref = S.m.filter(r => r[0] <= S.seen - 2400 && r[0] >= S.seen - 5400).pop();
+    if (ref) {
+      const d = S.temp - ref[1];
+      $("trend").textContent = (d > 0.2 ? "\u2191 " : d < -0.2 ? "\u2193 " : "\u2192 ") + (d > 0 ? "+" : "") + d.toFixed(1) + " \u00B0C v zadnji uri";
+    } else $("trend").textContent = "Trend: ...";
+  }
+
+  function renderCards() {
+    const s = todayStats();
+    $("smin").innerHTML = fmt(s && s.mn) + "<small> &deg;C</small>";
+    $("smax").innerHTML = fmt(s && s.mx) + "<small> &deg;C</small>";
+    $("savg").innerHTML = fmt(s && s.avg) + "<small> &deg;C</small>";
+    const f = cardsFrom();
+    $("cardsNote").textContent = f > dayStart() ? "Merjeno od ponastavitve: " + new Date(f * 1000).toLocaleString("sl-SI") : "";
+  }
+
+  function renderChart() {
+    const from = loc.histFrom, now = nowS();
+    let rows;
+    if (range === 24) {
+      rows = S.m.filter(r => r[0] >= Math.max(from, now - 86400));
+      if (S.cur && S.cur[0] >= from) rows.push(S.cur);
+    } else {
+      rows = hourlyRows(Math.max(from, range ? now - range * 86400 : 0));
+    }
+    const pt = i => rows.map(r => ({ x: r[0] * 1000, y: r[i] }));
+    const x0 = rows.length ? rows[0][0] * 1000 : now * 1000, x1 = rows.length ? rows[rows.length - 1][0] * 1000 : now * 1000;
+    const flat = v => [{ x: x0, y: v }, { x: x1, y: v }];
+    const ds = [
+      { label: "max", data: pt(3), borderWidth: 0, pointRadius: 0, fill: "+1", backgroundColor: "rgba(76,201,240,.14)", order: 3 },
+      { label: "min", data: pt(2), borderWidth: 0, pointRadius: 0, fill: false, order: 3 },
+      { label: "povprečje", data: pt(1), borderWidth: 2.5, pointRadius: rows.length < 60 ? 3 : 0, pointHoverRadius: 5, tension: .3,
+        borderColor: "#4cc9f0", backgroundColor: "#4cc9f0", fill: false, order: 1,
+        segment: { borderColor: ctx => lineColor((ctx.p0.parsed.y + ctx.p1.parsed.y) / 2) } },
+      { label: "toplo", data: flat(cfg.hot), borderColor: "rgba(255,138,101,.6)", borderDash: [6, 6], borderWidth: 1, pointRadius: 0, order: 2 },
+      { label: "hladno", data: flat(cfg.cold), borderColor: "rgba(110,198,255,.6)", borderDash: [6, 6], borderWidth: 1, pointRadius: 0, order: 2 }
+    ];
+    if (!chart) {
+      chart = new Chart($("chart"), {
+        type: "line",
+        data: { datasets: ds },
+        options: {
+          responsive: true, maintainAspectRatio: false, animation: false,
+          interaction: { mode: "index", intersect: false },
+          scales: {
+            x: { type: "time", time: { displayFormats: { minute: "HH:mm", hour: "HH:mm", day: "d. M.", month: "MMM yyyy" }, tooltipFormat: "d. M. yyyy HH:mm" },
+                 ticks: { color: "#8a97b5", maxRotation: 0, autoSkipPadding: 24 }, grid: { color: "rgba(255,255,255,.05)" } },
+            y: { ticks: { color: "#8a97b5", callback: v => v + "\u00B0" }, grid: { color: "rgba(255,255,255,.07)" } }
+          },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: "#0b1220", borderColor: "#26324f", borderWidth: 1, padding: 10,
+              filter: i => i.dataset.label !== "toplo" && i.dataset.label !== "hladno",
+              callbacks: { label: i => i.dataset.label + ": " + i.parsed.y.toFixed(1) + " \u00B0C" }
+            },
+            zoom: {
+              zoom: { wheel: { enabled: true }, pinch: { enabled: true }, drag: { enabled: false }, mode: "x" },
+              pan: { enabled: true, mode: "x" }
+            }
+          }
+        }
+      });
+    } else {
+      chart.data.datasets = ds;
+      chart.update("none");
+    }
+  }
+
+  function renderAnalysis() {
+    const now = nowS();
+    const from = Math.max(loc.histFrom, period === 1 ? dayStart() : period ? now - period * 86400 : 0);
+    const rows = hourlyRows(from);
+    let hot = 0, cold = 0, opt = 0, tot = 0;
+    rows.forEach(r => {
+      const w = r[4];
+      tot += w;
+      if (r[1] > cfg.hot) hot += w;
+      if (r[1] < cfg.cold) cold += w;
+      if (r[1] >= cfg.optLo && r[1] <= cfg.optHi) opt += w;
+    });
+    const pct = v => tot ? " <small>(" + Math.round(v / tot * 100) + " %)</small>" : "";
+    $("kHot").innerHTML = "Nad " + cfg.hot + "&deg;C";
+    $("kOpt").innerHTML = "Optimalno " + cfg.optLo + "-" + cfg.optHi + "&deg;C";
+    $("kCold").innerHTML = "Pod " + cfg.cold + "&deg;C";
+    $("ahi").innerHTML = tot ? fmtH(hot) + pct(hot) : "--";
+    $("aopt").innerHTML = tot ? fmtH(opt) + pct(opt) : "--";
+    $("alo").innerHTML = tot ? fmtH(cold) + pct(cold) : "--";
+    const other = Math.max(0, tot - hot - cold - opt);
+    const seg = (v, col) => '<span style="width:' + (tot ? v / tot * 100 : 0) + '%;background:' + col + '"></span>';
+    $("bar").innerHTML = seg(cold, "#6ec6ff") + seg(opt, "#3ddc84") + seg(other, "#475577") + seg(hot, "#ff8a65");
+    $("legend").innerHTML =
+      '<span><b style="background:#6ec6ff"></b>Hladno (&lt;' + cfg.cold + ')</span>' +
+      '<span><b style="background:#3ddc84"></b>Optimalno (' + cfg.optLo + '-' + cfg.optHi + ')</span>' +
+      '<span><b style="background:#ff8a65"></b>Toplo (&gt;' + cfg.hot + ')</span>' +
+      '<span><b style="background:#475577"></b>Ostalo</span>';
+    $("thHot").innerHTML = "&gt;" + cfg.hot + "&deg;C";
+    $("thCold").innerHTML = "&lt;" + cfg.cold + "&deg;C";
+    renderDays();
+  }
+
+  function renderDays() {
+    const rows = hourlyRows(Math.max(loc.histFrom, nowS() - 14 * 86400));
+    const days = {};
+    rows.forEach(r => {
+      const d = new Date(r[0] * 1000);
+      const key = d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
+      const o = days[key] || (days[key] = { d, mn: 1e9, mx: -1e9, s: 0, w: 0, hot: 0, cold: 0, opt: 0 });
+      o.mn = Math.min(o.mn, r[2]); o.mx = Math.max(o.mx, r[3]);
+      o.s += r[1] * r[4]; o.w += r[4];
+      if (r[1] > cfg.hot) o.hot += r[4];
+      if (r[1] < cfg.cold) o.cold += r[4];
+      if (r[1] >= cfg.optLo && r[1] <= cfg.optHi) o.opt += r[4];
+    });
+    const keys = Object.keys(days).sort((a, b) => b - a);
+    $("days").innerHTML = keys.length ? keys.map(k => {
+      const o = days[k];
+      return "<tr><td>" + o.d.getDate() + "." + (o.d.getMonth() + 1) + ".</td><td class='cold'>" + fmt(o.mn) + "</td><td class='hot'>" + fmt(o.mx) +
+        "</td><td>" + fmt(o.s / o.w) + "</td><td>" + fmtH(o.hot) + "</td><td>" + fmtH(o.cold) + "</td><td class='ok'>" + Math.round(o.opt / o.w * 100) + " %</td></tr>";
+    }).join("") : "<tr><td colspan='7'>ni podatkov</td></tr>";
+  }
+
+  function renderAll() { renderStatus(); renderHero(); renderCards(); renderChart(); renderAnalysis(); }
+
+  function bindTabs(id, cb) {
+    $(id).addEventListener("click", e => {
+      const b = e.target.closest(".tab");
+      if (!b) return;
+      [...$(id).children].forEach(x => x.classList.toggle("active", x === b));
+      cb(parseInt(b.dataset.v));
+    });
+  }
+  bindTabs("rangeTabs", v => { range = v; if (chart) chart.resetZoom(); renderChart(); });
+  bindTabs("periodTabs", v => { period = v; renderAnalysis(); });
+  setInterval(renderAll, 15000);
+
+  // ---------- nastavitve analize ----------
+  function fillCfg() {
+    $("cHot").value = cfg.hot; $("cCold").value = cfg.cold; $("cOptLo").value = cfg.optLo; $("cOptHi").value = cfg.optHi;
+  }
+  function saveCfg() {
+    const n = { hot: parseFloat($("cHot").value), cold: parseFloat($("cCold").value), optLo: parseFloat($("cOptLo").value), optHi: parseFloat($("cOptHi").value) };
+    if (Object.values(n).some(isNaN) || n.cold >= n.hot || n.optLo > n.optHi) { $("cfgMsg").textContent = "neveljavne vrednosti"; return; }
+    cfg = n; store.set("cfg", cfg); $("cfgMsg").textContent = "shranjeno \u2713"; renderAll();
+  }
+  function resetCfg() { cfg = Object.assign({}, DEF_CFG); store.set("cfg", cfg); fillCfg(); $("cfgMsg").textContent = "privzete vrednosti \u2713"; renderAll(); }
+
+  // ---------- alarmi ----------
   function showAlarms(s) {
     const p = s.split(",");
     if (p.length < 4) return;
     if (document.activeElement && document.activeElement.tagName === "INPUT") return;
     $("ahiIn").value = p[0]; $("aloIn").value = p[1]; $("arIn").value = p[2];
     $("aen").classList.toggle("on", p[3] === "1");
-    $("asave").textContent = "shranjeno na ESP ✓";
+    $("asave").textContent = "shranjeno na ESP \u2713";
+  }
+  function sendAlarms(hi, lo, r, en) {
+    c.publish(ID + "/alarm/set", hi + "," + lo + "," + r + "," + (en ? 1 : 0), { retain: true });
+    $("asave").textContent = "poslano, ESP shrani ob naslednjem zbujanju (do 1 min)";
   }
   function saveAlarms() {
     const hi = parseFloat($("ahiIn").value), lo = parseFloat($("aloIn").value), r = parseFloat($("arIn").value);
     if (isNaN(hi) || isNaN(lo) || isNaN(r) || r < 0.1 || lo >= hi) { $("asave").textContent = "neveljavne vrednosti"; return; }
-    c.publish(ID + "/alarm/set", hi + "," + lo + "," + r + "," + ($("aen").classList.contains("on") ? 1 : 0));
-    $("asave").textContent = "pošiljam...";
+    sendAlarms(hi, lo, r, $("aen").classList.contains("on"));
   }
-  function send(cmd) { c.publish(ID + "/led/set", cmd); }
-
-  function colorFor(t) {
-    if (t < 5) return ["#1e3a8a", "#38bdf8", "Zelo mrzlo"];
-    if (t < 18) return ["#2563eb", "#22d3ee", "Hladno"];
-    if (t < 20) return ["#0891b2", "#34d399", "Malo sveže"];
-    if (t <= 23) return ["#059669", "#34d399", "Optimalno"];
-    if (t <= 25) return ["#d97706", "#fbbf24", "Toplo"];
-    if (t <= 30) return ["#ea580c", "#f59e0b", "Vroče"];
-    return ["#b91c1c", "#f97316", "Zelo vroče"];
-  }
-  function showTemp(t) {
-    if (isNaN(t)) return;
-    $("temp").textContent = t.toFixed(1);
-    const [a, b, mood] = colorFor(t);
-    $("hero").style.background = "linear-gradient(135deg," + a + "," + b + ")";
-    $("mood").textContent = mood;
-    $("upd").textContent = "Posodobljeno " + new Date().toLocaleTimeString("sl-SI") + " • ESP8266 • MQTT";
+  function resetAlarms() {
+    $("ahiIn").value = DEF_ALARM.hi; $("aloIn").value = DEF_ALARM.lo; $("arIn").value = DEF_ALARM.rate; $("aen").classList.add("on");
+    sendAlarms(DEF_ALARM.hi, DEF_ALARM.lo, DEF_ALARM.rate, true);
   }
 
-  function setRange(n, el) {
-    range = n;
-    document.querySelectorAll(".tab").forEach(b => b.classList.toggle("active", b === el));
-    showStats();
+  // ---------- ponastavitve podatkov ----------
+  function sendCmd(cmd) { c.publish(ID + "/cmd", cmd, { retain: true }); }
+  function resetCards() {
+    loc.cardsFrom = Math.floor(nowS()); store.set("loc", loc); sendCmd("reset"); renderAll();
+    $("dataMsg").textContent = "Min / max / povprečje ponastavljeni.";
+  }
+  function clearHistory() {
+    if (!confirm("Izbrišem vso zgodovino temperatur (graf in analizo)?")) return;
+    loc.histFrom = Math.floor(nowS()); store.set("loc", loc);
+    S.m = []; S.h = []; S.cur = null;
+    sendCmd("clear"); renderAll();
+    $("dataMsg").textContent = "Zgodovina izbrisana. ESP jo izbriše ob naslednjem zbujanju (do 1 min).";
+  }
+  function resetAll() {
+    if (!confirm("Ponastavim nastavitve analize in alarmov na privzete vrednosti?")) return;
+    resetCfg(); resetAlarms();
   }
 
-  function showStats() {
-    if (!stats) return;
-    const now = new Date(stats.t.replace(" ", "T"));
-    const H = stats.h.length;
-    const labels = stats.h.map((_, i) => {
-      const d = new Date(now.getTime() - (H - 1 - i) * 3600000);
-      return range <= 24 ? String(d.getHours()).padStart(2, "0") + ":00"
-                         : d.getDate() + "." + (d.getMonth() + 1) + ". " + String(d.getHours()).padStart(2, "0") + "h";
-    }).slice(-range);
-    const data = stats.h.slice(-range);
-    const ctx = $("chart").getContext("2d");
-    const g = ctx.createLinearGradient(0, 0, 0, 300);
-    g.addColorStop(0, "rgba(76,201,240,.45)"); g.addColorStop(1, "rgba(76,201,240,0)");
-    if (!chart) {
-      chart = new Chart(ctx, {
-        type: "line",
-        data: { labels, datasets: [{ data, borderColor: "#4cc9f0", backgroundColor: g, fill: true, pointRadius: 0, borderWidth: 2.5, tension: 0.35, spanGaps: true }] },
-        options: {
-          maintainAspectRatio: false, interaction: { mode: "index", intersect: false },
-          plugins: { legend: { display: false }, tooltip: { callbacks: { label: x => x.parsed.y + " °C" } } },
-          scales: {
-            x: { ticks: { color: "#8a97b5", maxTicksLimit: 8 }, grid: { display: false } },
-            y: { ticks: { color: "#8a97b5", callback: v => v + "°" }, grid: { color: "#26324f" } }
-          }
-        }
-      });
-    } else {
-      chart.data.labels = labels; chart.data.datasets[0].data = data; chart.data.datasets[0].backgroundColor = g; chart.update();
-    }
-
-    const days = stats.d.filter(x => x);
-    $("days").innerHTML = days.slice().reverse().map(d => {
-      const pct = Math.round(100 * d[6] / d[7]);
-      return "<tr><td><b>" + d[0] + "</b></td><td class='cold'>" + d[1] + "°</td><td class='hot'>" + d[2] + "°</td><td>" + d[3] + "°</td><td>" +
-        (d[4] / 60).toFixed(1) + " h</td><td>" + (d[5] / 60).toFixed(1) + " h</td><td><span class='mini'><span style='width:" + pct + "%'></span></span> " + pct + "%</td></tr>";
-    }).join("");
-
-    const t = days[days.length - 1];
-    if (t) {
-      $("smin").innerHTML = t[1] + "<small> °C</small>";
-      $("smax").innerHTML = t[2] + "<small> °C</small>";
-      $("savg").innerHTML = t[3] + "<small> °C</small>";
-      $("ahi").textContent = (t[4] / 60).toFixed(1) + " h";
-      $("alo").textContent = (t[5] / 60).toFixed(1) + " h";
-      const n = t[7], opt = Math.round(100 * t[6] / n), hi = 100 * t[4] / n, lo = 100 * t[5] / n;
-      $("aopt").textContent = opt + " %";
-      const other = Math.max(0, 100 - lo - opt - hi);
-      $("bar").innerHTML = "<span style='width:" + lo + "%;background:#6ec6ff'></span><span style='width:" + opt + "%;background:#3ddc84'></span><span style='width:" + other +
-        "%;background:#475577'></span><span style='width:" + hi + "%;background:#ff8a65'></span>";
-    }
-  }
-
-  function showHistory(s) {
-    const lines = s.split("\n").filter(l => l && !l.startsWith("time,"));
-    csv = "time,temperature_c\n" + lines.map(l => l.split(",").slice(0, 2).join(",")).join("\n") + "\n";
-    if (lines.length > 1) {
-      const a = parseFloat(lines[0].split(",")[1]), b = parseFloat(lines[lines.length - 1].split(",")[1]);
-      const d = b - a, mins = lines.length - 1;
-      const arrow = Math.abs(d) < 0.3 ? "→ Stabilno" : d > 0 ? "↑ Narašča" : "↓ Pada";
-      $("trend").textContent = arrow + " " + (d >= 0 ? "+" : "") + d.toFixed(1) + "°C v zadnjih " + mins + " min";
-    }
-  }
-  function downloadCsv() {
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
-    a.download = "log.csv";
-    a.click();
-  }
+  fillCfg();
+  renderAll();
 </script>
 </body>
 </html>
