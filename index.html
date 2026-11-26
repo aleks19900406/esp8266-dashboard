@@ -124,12 +124,20 @@
   const $ = id => document.getElementById(id);
   const c = mqtt.connect("wss://broker.hivemq.com:8884/mqtt");
   c.on("connect", () => {
-    $("status").classList.add("on"); $("stxt").textContent = "povezano";
-    c.subscribe([ID + "/temperature", ID + "/led/state", ID + "/history", ID + "/stats", ID + "/alarm/state"]);
+    $("stxt").textContent = "čakam na napravo...";
+    c.subscribe([ID + "/temperature", ID + "/led/state", ID + "/history", ID + "/stats", ID + "/alarm/state", ID + "/seen"]);
   });
-  c.on("close", () => { $("status").classList.remove("on"); $("stxt").textContent = "ni povezave"; });
+  let seen = 0;
+  function upd() {
+    const age = Date.now() / 1000 - seen, on = seen > 0 && age < 150;
+    $("status").classList.toggle("on", on);
+    $("stxt").textContent = seen === 0 ? "ni podatkov" : on ? "povezano" : "naprava ni povezana (zadnjič pred " + Math.round(age / 60) + " min)";
+  }
+  setInterval(upd, 5000);
+  c.on("close", () => { seen = 0; upd(); });
   c.on("message", (t, m) => {
     const s = m.toString();
+    if (t.endsWith("/seen")) { seen = parseInt(s); upd(); return; }
     if (t.endsWith("/temperature")) showTemp(parseFloat(s));
     if (t.endsWith("/led/state")) { $("led").textContent = s === "ON" ? "Vklopljena" : "Izklopljena"; $("sw").classList.toggle("on", s === "ON"); }
     if (t.endsWith("/history")) showHistory(s);
